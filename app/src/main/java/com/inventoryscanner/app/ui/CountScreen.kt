@@ -26,7 +26,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import com.inventoryscanner.app.data.Product
+import com.inventoryscanner.app.data.Item
 import com.inventoryscanner.app.ml.CentroidTracker
 import com.inventoryscanner.app.ml.Detection
 import com.inventoryscanner.app.ml.Detector
@@ -52,19 +52,19 @@ private fun ImageProxy.uprightBitmap(maxSide: Int): Bitmap {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CountScreen(vm: InventoryViewModel, barcode: String, onBack: () -> Unit) {
+fun CountScreen(vm: InventoryViewModel, itemCode: String, onBack: () -> Unit) {
     var detector by remember { mutableStateOf<Detector?>(null) }
     var loadError by remember { mutableStateOf<String?>(null) }
     var tab by remember { mutableIntStateOf(0) }
-    var target by remember { mutableStateOf<Product?>(null) }
+    var target by remember { mutableStateOf<Item?>(null) }
     LaunchedEffect(Unit) {
         runCatching { detector = vm.detector() }.onFailure { loadError = it.message ?: "Could not load model" }
     }
-    LaunchedEffect(barcode) { if (barcode.isNotBlank()) target = vm.find(barcode) }
+    LaunchedEffect(itemCode) { if (itemCode.isNotBlank()) target = vm.item(itemCode) }
 
     Scaffold(topBar = {
         TopAppBar(
-            title = { Text(target?.let { "Count: ${it.name}" } ?: "AI count") },
+            title = { Text(target?.let { "Count: ${it.description}" } ?: "AI count") },
             navigationIcon = { TextButton(onClick = onBack) { Text("Back") } },
         )
     }) { pad ->
@@ -88,15 +88,14 @@ fun CountScreen(vm: InventoryViewModel, barcode: String, onBack: () -> Unit) {
 
 /** Shared "apply the result" UI: choose a product (if none preselected) and set/add the quantity. */
 @Composable
-private fun ApplyBar(vm: InventoryViewModel, target: Product?, count: Int, source: String, detail: String,
+private fun ApplyBar(vm: InventoryViewModel, target: Item?, count: Int, source: String, detail: String,
                      addMode: Boolean, onDone: () -> Unit) {
     var picking by remember { mutableStateOf(false) }
-    val products by vm.products.collectAsState()
+    val products by vm.items.collectAsState()
     val scope = rememberCoroutineScope()
 
-    fun apply(p: Product) {
-        val newQty = if (addMode) p.quantity + count else count
-        vm.applyCount(p.barcode, newQty, source, detail); onDone()
+    fun apply(p: Item) {
+                vm.applyCount(p.itemCode, count, source, detail, add = addMode); onDone()
     }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
         Button(onClick = { if (target != null) apply(target) else picking = true }, Modifier.weight(1f)) {
@@ -111,9 +110,9 @@ private fun ApplyBar(vm: InventoryViewModel, target: Product?, count: Int, sourc
         text = {
             if (products.isEmpty()) Text("Add a product first.")
             LazyColumn {
-                items(products, key = { it.barcode }) { p ->
+                items(products, key = { it.itemCode }) { p ->
                     TextButton(onClick = { picking = false; scope.launch { apply(p) } }, Modifier.fillMaxWidth()) {
-                        Text("${p.name} (${p.quantity})", Modifier.fillMaxWidth())
+                        Text("${p.description} (${p.countedQty ?: "-"})", Modifier.fillMaxWidth())
                     }
                 }
             }
@@ -136,7 +135,7 @@ private fun DetectionOverlay(frameW: Int, frameH: Int, dets: List<Detection>, mo
 // ---------------------------------------------------------------- snapshot (shelf / pile)
 
 @Composable
-private fun SnapshotCount(vm: InventoryViewModel, detector: Detector, target: Product?, onDone: () -> Unit) {
+private fun SnapshotCount(vm: InventoryViewModel, detector: Detector, target: Item?, onDone: () -> Unit) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val capture = remember { ImageCapture.Builder().setResolutionSelector(CAMERA_RESOLUTION)
@@ -206,7 +205,7 @@ private fun SnapshotCount(vm: InventoryViewModel, detector: Detector, target: Pr
 // ---------------------------------------------------------------- live belt (line crossing)
 
 @Composable
-private fun BeltCount(vm: InventoryViewModel, detector: Detector, target: Product?, onDone: () -> Unit) {
+private fun BeltCount(vm: InventoryViewModel, detector: Detector, target: Item?, onDone: () -> Unit) {
     val executor = remember { Executors.newSingleThreadExecutor() }
     val tracker = remember { CentroidTracker() }
     val counter = remember { LineCounter(detector.labels.size) }

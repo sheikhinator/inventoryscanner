@@ -59,6 +59,7 @@ dependencies {
     implementation("androidx.camera:camera-view:$camerax")
 
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
+    implementation("org.dhatim:fastexcel-reader:0.18.4")
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.20.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 

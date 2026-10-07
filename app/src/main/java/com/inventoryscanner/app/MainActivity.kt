@@ -3,57 +3,68 @@ package com.inventoryscanner.app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.lightColorScheme
-import androidx.compose.ui.graphics.Color
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.inventoryscanner.app.ui.CountScreen
-import com.inventoryscanner.app.ui.InventoryScreen
-import com.inventoryscanner.app.ui.InventoryViewModel
-import com.inventoryscanner.app.ui.ProductScreen
-import com.inventoryscanner.app.ui.ScanScreen
+import com.inventoryscanner.app.ui.*
+import kotlinx.coroutines.launch
+import android.net.Uri
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme(colorScheme = lightColorScheme(primary = Color(0xFF0B5ED7))) {
+            AppTheme {
                 val nav = rememberNavController()
                 val vm: InventoryViewModel = viewModel()
-                NavHost(nav, startDestination = "inventory") {
+                val scope = rememberCoroutineScope()
+                val settings by vm.settings.collectAsState()
+                val start = if (settings.store.isEmpty() || settings.role.isEmpty()) "setup" else "inventory"
+                val str = { name: String -> navArgument(name) { type = NavType.StringType; defaultValue = "" } }
+
+                NavHost(nav, startDestination = start) {
+                    composable("setup") {
+                        SetupScreen(vm, firstRun = start == "setup", onDone = {
+                            if (!nav.popBackStack()) nav.navigate("inventory") { popUpTo("setup") { inclusive = true } }
+                        })
+                    }
                     composable("inventory") {
                         InventoryScreen(vm,
                             onScan = { nav.navigate("scan") },
-                            onCount = { nav.navigate("count?barcode=") },
-                            onOpen = { nav.navigate("product?barcode=$it") },
-                            onNew = { nav.navigate("product?barcode=") })
+                            onCount = { nav.navigate("count?code=") },
+                            onOpen = { nav.navigate("item?code=${Uri.encode(it)}") },
+                            onNew = { nav.navigate("item?code=") },
+                            onSettings = { nav.navigate("settings") })
                     }
+                    composable("settings") { SettingsScreen(vm, onBack = { nav.popBackStack() }, onStore = { nav.navigate("setup") }) }
                     composable("scan") {
-                        ScanScreen(vm, onBack = { nav.popBackStack() },
-                            onBarcode = { code ->
+                        ScanScreen(vm, onBack = { nav.popBackStack() }, onBarcode = { bc ->
+                            scope.launch {
+                                val found = vm.itemByBarcode(bc)
                                 nav.popBackStack()
-                                nav.navigate("product?barcode=$code")
-                            })
+                                if (found != null) nav.navigate("item?code=${Uri.encode(found.itemCode)}")
+                                else nav.navigate("link?barcode=${Uri.encode(bc)}")
+                            }
+                        })
                     }
-                    composable(
-                        "product?barcode={barcode}",
-                        arguments = listOf(navArgument("barcode") { type = NavType.StringType; defaultValue = "" }),
-                    ) {
-                        ProductScreen(vm, it.arguments?.getString("barcode").orEmpty(),
-                            onBack = { nav.popBackStack() },
-                            onCount = { code -> nav.navigate("count?barcode=$code") })
+                    composable("link?barcode={barcode}", arguments = listOf(str("barcode"))) {
+                        val bc = it.arguments?.getString("barcode").orEmpty()
+                        LinkBarcodeScreen(vm, bc, onBack = { nav.popBackStack() },
+                            onLinked = { code -> nav.popBackStack(); nav.navigate("item?code=${Uri.encode(code)}") },
+                            onNew = { nav.popBackStack(); nav.navigate("item?code=&barcode=${Uri.encode(bc)}") })
                     }
-                    composable(
-                        "count?barcode={barcode}",
-                        arguments = listOf(navArgument("barcode") { type = NavType.StringType; defaultValue = "" }),
-                    ) {
-                        CountScreen(vm, it.arguments?.getString("barcode").orEmpty(),
-                            onBack = { nav.popBackStack() })
+                    composable("item?code={code}&barcode={barcode}", arguments = listOf(str("code"), str("barcode"))) {
+                        ItemScreen(vm, it.arguments?.getString("code").orEmpty(), it.arguments?.getString("barcode").orEmpty(),
+                            onBack = { nav.popBackStack() }, onCount = { c -> nav.navigate("count?code=${Uri.encode(c)}") })
+                    }
+                    composable("count?code={code}", arguments = listOf(str("code"))) {
+                        CountScreen(vm, it.arguments?.getString("code").orEmpty(), onBack = { nav.popBackStack() })
                     }
                 }
             }
