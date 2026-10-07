@@ -54,13 +54,13 @@ fun ProductScreen(vm: InventoryViewModel, initialBarcode: String, onBack: () -> 
                     label = { Text("Quantity") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
                 OutlinedButton(onClick = { qty = (qtyInt + 1).toString() }) { Text("+") }
             }
-            Button(Modifier.fillMaxWidth(), enabled = barcode.isNotBlank() && name.isNotBlank(), onClick = {
+            Button(modifier = Modifier.fillMaxWidth(), enabled = barcode.isNotBlank() && name.isNotBlank(), onClick = {
                 vm.save(Product(barcode, name.trim(), category.trim(), location.trim(), qtyInt),
                     source = "manual", previousQty = existing?.quantity ?: 0)
                 onBack()
             }) { Text("Save") }
             if (barcode.isNotBlank()) {
-                FilledTonalButton(Modifier.fillMaxWidth(), onClick = { onCount(barcode) }, enabled = !isNew) {
+                FilledTonalButton(modifier = Modifier.fillMaxWidth(), onClick = { onCount(barcode) }, enabled = !isNew) {
                     Text(if (isNew) "Save first to count with camera" else "Count with camera")
                 }
             }
