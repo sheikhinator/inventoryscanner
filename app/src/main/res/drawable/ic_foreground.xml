@@ -1,0 +1,6 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- simple barcode glyph -->
+    <path android:fillColor="#FFFFFF" android:pathData="M30,32h4v44h-4z M38,32h2v44h-2z M44,32h6v44h-6z M54,32h2v44h-2z M60,32h4v44h-4z M68,32h2v44h-2z M74,32h4v44h-4z" />
+</vector>

@@ -1,0 +1,12 @@
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+*.apk
+*.aab
+captures/
+.cxx/
+__pycache__/
+*.pt
+runs/
